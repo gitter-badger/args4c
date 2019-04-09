@@ -12,7 +12,7 @@ import scala.util.Properties
 import scala.util.control.NoStackTrace
 
 /**
-  * Makes available a means to initialize a sensitive, encrypted config file via [[SecureConfig.setupSecureConfig]] and [[ConfigApp.secretConfigForArgs]]
+  * Makes available a means to initialize a sensitive, encrypted config file via [[SecureConfig.setupSecureConfig]] and [[ConfigApp.secureConfigForArgs]]
   *
   * The idea is that a (service) user-only readable, password-protected AES encrypted config file can be set up via reading entries from
   * standard input, and an application an use those configuration entries thereafter by taking the password from standard input.
@@ -24,12 +24,12 @@ object SecureConfig {
   /**
     * The environment variable which, if set, will be used to decrypt an encrypted config file (e.g. "--secure" for the default or "--secure=password.conf" for specifying one)
     */
-  val SecretEnvVariableName = "CONFIG_SECRET"
+  val SecureEnvVariableName = "CONFIG_SECRET"
 
 
   private[args4c] val defaultPermissions = "rwx------"
 
-  def defaultSecretConfigPath(workDir: String = Properties.userDir): String = {
+  def defaultSecureConfigPath(workDir: String = Properties.userDir): String = {
     Paths.get(workDir).relativize(Paths.get(s"${workDir}/.config/secure.conf")).toString
   }
 
@@ -47,15 +47,15 @@ object SecureConfig {
   }
 }
 
-case class SecureConfig(promptForInput: Reader) {
+case class SecureConfig(promptForInput: UserInput) {
 
   import SecureConfig._
 
-  /** @param defaultSecretConfigFilePath the default path to store the configuration in, either from the --secure=x/y/z user arg, and env variable or default
+  /** @param defaultSecureConfigFilePath the default path to store the configuration in, either from the --secure=x/y/z user arg, and env variable or default
     * @return the path to the secure config
     */
-  def setupSecureConfig(defaultSecretConfigFilePath : Path): Path = {
-    val configPath = readSecretConfigPath(defaultSecretConfigFilePath)
+  def setupSecureConfig(defaultSecureConfigFilePath : Path): Path = {
+    val configPath = readSecureConfigPath(defaultSecureConfigFilePath)
     updateSecureConfig(configPath)
   }
 
@@ -74,7 +74,7 @@ case class SecureConfig(promptForInput: Reader) {
     var previousConfigPassword: Option[Array[Byte]] = None
 
     val config = {
-      val newConfig = readSecretConfig()
+      val newConfig = readSecureConfig()
       val existingConfig = if (Files.exists(configPath)) {
         val pwd = promptForInput(PromptForExistingPassword(configPath)).getBytes("UTF-8")
         previousConfigPassword = Option(pwd)
@@ -116,13 +116,13 @@ case class SecureConfig(promptForInput: Reader) {
   }
 
   /**
-    * read the configuration from the given path, prompting for the password via 'promptForInput' should the  [[SecureConfig.SecretEnvVariableName]]
+    * read the configuration from the given path, prompting for the password via 'promptForInput' should the  [[SecureConfig.SecureEnvVariableName]]
     * environment variable not be set
     *
     * @param pathToEncryptedConfig the path pointing at the encrypted config
     * @return a configuration if the file exists
     */
-  def readSecretConfig(pathToEncryptedConfig: Path): Option[Config] = {
+  def readSecureConfig(pathToEncryptedConfig: Path): Option[Config] = {
     if (Files.exists(pathToEncryptedConfig)) {
       val pwd = readConfigPassword()
       val conf = readConfigAtPath(pathToEncryptedConfig, pwd)
@@ -136,10 +136,10 @@ case class SecureConfig(promptForInput: Reader) {
   /** @return the application config password used to encrypt the config
     */
   protected def readConfigPassword(): Array[Byte] = {
-    envOrProp(SecretEnvVariableName).getOrElse(promptForInput(PromptForPassword)).getBytes("UTF-8")
+    envOrProp(SecureEnvVariableName).getOrElse(promptForInput(PromptForPassword)).getBytes("UTF-8")
   }
 
-  private def readSecretConfig(): String = {
+  private def readSecureConfig(): String = {
     import implicits._
     readNext(Map.empty, ReadNextKeyValuePair).map {
       case (key, value) => s"$key = ${value.quoted}"
@@ -166,9 +166,9 @@ case class SecureConfig(promptForInput: Reader) {
 
   /** ask where we should save the config
     */
-  private def readSecretConfigPath(pathToSecretConfigFile : Path): Path = {
-    promptForInput(SaveSecretPrompt(pathToSecretConfigFile)) match {
-      case "" => pathToSecretConfigFile
+  private def readSecureConfigPath(pathToSecureConfigFile : Path): Path = {
+    promptForInput(SaveSecretPrompt(pathToSecureConfigFile)) match {
+      case "" => pathToSecureConfigFile
       case path => Paths.get(path)
     }
   }

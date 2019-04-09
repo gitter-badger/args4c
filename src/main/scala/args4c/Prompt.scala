@@ -20,9 +20,9 @@ case class SaveSecretPrompt(configPath: Path)                           extends 
 object Prompt {
 
   /** @param userInput a function which accepts user input
-    * @return a Reader from the user input
+    * @return a UserInput from the user input
     */
-  def stdIn(userInput: String => String = StdIn.readLine(_)): Reader = (format _).andThen(userInput)
+  def stdIn(userInput: String => String = StdIn.readLine(_)): UserInput = (format _).andThen(userInput)
 
   def format(prompt: Prompt): String = {
     prompt match {
