@@ -31,7 +31,7 @@ object Prompt {
       case PromptForUpdatedPassword              => "New Config Password (or blank to reuse the existing one):"
       case PromptForExistingPassword(configPath) => s"A config already exists at $configPath, enter password:"
       case SaveSecretPrompt(configPath)          => s"Save secure config to: [${configPath}]"
-      case ReadNextKeyValuePair                  => "Add config path in the form <key>=<value> (leave blank when finished):"
+      case ReadNextKeyValuePair(_)                  => "Add config path in the form <key>=<value> (leave blank when finished):"
       case ReadNextKeyValuePairAfterError(previousInvalidEntry) =>
         s"Invalid key=value pair '$previousInvalidEntry'. Entries should be in the for <path.to.config.entry>=some sensitive value"
       case PromptForConfigFilePermissions => s"Config Permissions: [$defaultPermissions]"

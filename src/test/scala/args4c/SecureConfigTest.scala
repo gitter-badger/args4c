@@ -120,7 +120,7 @@ object SecureConfigTest {
       case PromptForPassword              => password
       case PromptForUpdatedPassword       => password
       case PromptForExistingPassword(_)   => password
-      case ReadNextKeyValuePair =>
+      case ReadNextKeyValuePair(_) =>
         if (testConfigEntries.hasNext) {
           testConfigEntries.next()
         } else {

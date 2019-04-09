@@ -3,7 +3,6 @@ package args4c
 import java.util.concurrent.TimeUnit
 
 import com.typesafe.config._
-import com.typesafe.config.impl.ConfigImpl
 
 import scala.compat.Platform
 import scala.concurrent.duration._
@@ -139,24 +138,24 @@ trait RichConfigOps extends Dynamic with LowPriorityArgs4cImplicits {
     * @param value the value to set
     * @return a new configuration based on 'configString' with our config as a fallback
     */
-  def set(key: String, value: Long, originDesc: String = null): Config = set(Map(key -> value), originDesc)
+  def set(key: String, value: Long): Config = set(Map(key -> value))
 
-  def set(key: String, value: String, originDesc: String = null): Config = set(Map(key -> value), originDesc)
+  def set(key: String, value: String): Config = set(Map(key -> value))
 
-  def set(key: String, value: Boolean, originDesc: String = null): Config = set(Map(key -> value), originDesc)
+  def set(key: String, value: Boolean): Config = set(Map(key -> value))
 
   def setArray[T](key: String, firstValue: T, secondValue: T, theRest: T*): Config = {
-    set(key, firstValue +: secondValue +: theRest.toSeq)
+    setArray(key, firstValue +: secondValue +: theRest.toSeq)
   }
 
-  def set[T](key: String, value: Seq[T], originDesc: String = null): Config = {
+  def setArray[T](key: String, value: Seq[T], originDesc: String = null): Config = {
     import scala.collection.JavaConverters._
     set(Map(key -> value.asJava), originDesc)
   }
 
-  def set(values: Map[String, Any], originDesc: String = null): Config = {
+  def set(values: Map[String, Any], originDesc: String = "override"): Config = {
     import scala.collection.JavaConverters._
-    overrideWith(ConfigFactory.parseMap(values.asJava, Option(originDesc).getOrElse("override")))
+    overrideWith(ConfigFactory.parseMap(values.asJava, originDesc))
   }
 
   /** @param other the configuration to remove from this config
