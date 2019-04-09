@@ -71,25 +71,7 @@ case class SecureConfig(promptForInput: UserInput) {
       Files.createDirectories(configPath.getParent)
     }
 
-    var previousConfigPassword: Option[Array[Byte]] = None
-
-    val config = {
-      val newConfig = readSecureConfig()
-      val existingConfig = if (Files.exists(configPath)) {
-        val pwd = promptForInput(PromptForExistingPassword(configPath)).getBytes("UTF-8")
-        previousConfigPassword = Option(pwd)
-
-        readConfigAtPath(configPath, pwd)
-      } else {
-        ConfigFactory.empty
-      }
-      val options = ConfigParseOptions.defaults()
-        .setSyntax(ConfigSyntax.CONF)
-        .setOriginDescription("sensitive")
-        .setAllowMissing(false)
-
-      ConfigFactory.parseString(newConfig, options).withFallback(existingConfig)
-    }
+    val (previousConfigPassword, config) = readSecureConfig(configPath)
 
     val pwd: Array[Byte] = {
       val configPasswordPrompt = if (previousConfigPassword.isEmpty) PromptForPassword else PromptForUpdatedPassword
@@ -122,7 +104,7 @@ case class SecureConfig(promptForInput: UserInput) {
     * @param pathToEncryptedConfig the path pointing at the encrypted config
     * @return a configuration if the file exists
     */
-  def readSecureConfig(pathToEncryptedConfig: Path): Option[Config] = {
+  def readSecureConfigAtPath(pathToEncryptedConfig: Path): Option[Config] = {
     if (Files.exists(pathToEncryptedConfig)) {
       val pwd = readConfigPassword()
       val conf = readConfigAtPath(pathToEncryptedConfig, pwd)
@@ -139,18 +121,35 @@ case class SecureConfig(promptForInput: UserInput) {
     envOrProp(SecureEnvVariableName).getOrElse(promptForInput(PromptForPassword)).getBytes("UTF-8")
   }
 
-  private def readSecureConfig(): String = {
+  /** @return the user-supplied key/value pairs as a parsable block of text
+    */
+  private def readSecureConfig(configPath : Path)  = {
     import implicits._
-    readNext(Map.empty, ReadNextKeyValuePair).map {
-      case (key, value) => s"$key = ${value.quoted}"
-    }.mkString(Platform.EOL)
+
+    var previousConfigPassword: Option[Array[Byte]] = None
+
+    val existingConfig: Config = if (Files.exists(configPath)) {
+      val pwd = promptForInput(PromptForExistingPassword(configPath)).getBytes("UTF-8")
+      previousConfigPassword = Option(pwd)
+
+      readConfigAtPath(configPath, pwd)
+    } else {
+      ConfigFactory.empty
+    }
+
+    previousConfigPassword -> readNext(existingConfig, ReadNextKeyValuePair(existingConfig))
   }
 
   @tailrec
-  private def readNext(entries: Map[String, String], nextPrompt : Prompt): Map[String, String] = {
+  private def readNext(entries: Config, nextPrompt : Prompt): Config = {
     promptForInput(nextPrompt).trim match {
       case "" => entries
-      case KeyValue(key, value) => readNext(entries.updated(key, value), ReadNextKeyValuePair)
+      case KeyValue(key, value) =>
+        import implicits._
+        val updated = entries.set(key, value) //, "sensitive")
+
+
+        readNext(updated, ReadNextKeyValuePair(updated))
       case other => readNext(entries, ReadNextKeyValuePairAfterError(other))
     }
   }

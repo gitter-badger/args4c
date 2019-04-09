@@ -37,10 +37,14 @@ class ConfigAppTest extends BaseSpec {
       bang.getMessage should include("Unrecognized user arg 'someRawString'")
     }
     "be able to source sensitive config files" in {
-      val app = new ConfigApp {
+      // = SecureConfig(Prompt.stdIn())
+      class TestApp(initial: SecureConfig) extends ConfigApp {
+        var cfg: SecureConfig = initial
+        override def secureConfig: SecureConfig = cfg
+
         type Result = Config
         var lastConfig: Config = ConfigFactory.empty
-        override def run(config: Config) = {
+        override def run(config: Config): Result = {
           lastConfig = config
           config
         }
@@ -50,10 +54,12 @@ class ConfigAppTest extends BaseSpec {
 
       try {
         // set up a secret config
-        app.runMain(Array("--setup", s"--secret=$configFile"), SecureConfig(SecureConfigTest.testInput(configFile, Iterator("my.password=test"))))
+        val app = new TestApp(SecureConfig(SecureConfigTest.testInput(configFile, Iterator("my.password=test"))))
+        app.runMain(Array("--setup", s"--secret=$configFile"))
 
         // run our app w/ that config
-        app.runMain(Array(s"--secret=$configFile"), SecureConfig(SecureConfigTest.testInput(configFile, Iterator())))
+        app.cfg = SecureConfig(SecureConfigTest.testInput(configFile, Iterator()))
+        app.runMain(Array(s"--secret=$configFile"))
 
         app.lastConfig.getString("my.password") shouldBe "test"
 
@@ -115,7 +121,6 @@ class ConfigAppTest extends BaseSpec {
     }
 
     override protected def secureConfigForArgs(userArgs: Array[String],
-                                               secureConfig: SecureConfig,
                                                ignoreDefaultSecretConfigArg: String,
                                                pathToSecretConfigArg: String): SecureConfigState = {
       SecureConfigNotSpecified

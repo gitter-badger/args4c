@@ -2,6 +2,7 @@ package args4c
 import java.nio.file.Path
 
 import args4c.SecureConfig.defaultPermissions
+import com.typesafe.config.Config
 
 import scala.io.StdIn
 
@@ -9,7 +10,7 @@ import scala.io.StdIn
   * Represents a request for user input when configuring the 'sensitive configurations'
   */
 sealed trait Prompt
-case object ReadNextKeyValuePair                                        extends Prompt
+case class ReadNextKeyValuePair(secureConfig: Config)                   extends Prompt
 case class ReadNextKeyValuePairAfterError(previousInvalidEntry: String) extends Prompt
 case object PromptForPassword                                           extends Prompt
 case object PromptForUpdatedPassword                                    extends Prompt

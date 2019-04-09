@@ -218,7 +218,7 @@ trait ConfigApp extends LowPriorityArgs4cImplicits {
       .orElse(defaultSecureConfig(userArgs))
       .map(Paths.get(_))
       .map { path =>
-        secureConfig.readSecureConfig(path) match {
+        secureConfig.readSecureConfigAtPath(path) match {
           case Some(config) => SecureConfigParsed(path, config)
           case None         => SecureConfigDoesntExist(path)
         }
