@@ -1,5 +1,5 @@
 package args4c
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.typesafe.config.{Config, ConfigFactory}
@@ -43,6 +43,8 @@ class ConfigAppTest extends BaseSpec {
       prompts.size shouldBe suppliedValues.size
     }
     "prompt the user if there are any missing required entries as well as any additional entries when setup is run" in withConfigFile { configFile =>
+      val testPassword = "whatever"
+
       val prompts = ListBuffer[(Prompt, String)]()
       val suppliedValues = Map(
         "foo"  -> "the foo value",
@@ -53,7 +55,7 @@ class ConfigAppTest extends BaseSpec {
       def inputs(prompt: Prompt): String = {
         val answer = prompt match {
           case ReadNextKeyValuePair(key, _) if suppliedValues.contains(key) => suppliedValues(key)
-          case _                                                            => SecureConfigTest.testInput(configFile, otherInputs)(prompt)
+          case _                                                            => SecureConfigTest.testInput(configFile, otherInputs, testPassword)(prompt)
         }
         prompts += (prompt -> answer)
         answer
@@ -61,6 +63,9 @@ class ConfigAppTest extends BaseSpec {
 
       val app = new PromptingTestApp(SecureConfig(inputs))
       app.main(Array("args4c.requiredConfigPaths=foo,bar,fizz", "--setup"))
+
+      // read back our fancy new populated config
+      val newlySetupConfig: Config = SecureConfig.readConfigAtPath(Paths.get(configFile), testPassword.getBytes("UTF-8"))
 
       // verify we were prompted for the required values
       suppliedValues.foreach {
@@ -71,9 +76,9 @@ class ConfigAppTest extends BaseSpec {
             }
             found should not be (empty)
           }
-          app.lastConfig.getString(key) shouldBe value
+          newlySetupConfig.getString(key) shouldBe value
       }
-      app.lastConfig.getString("meh") shouldBe "unprompted"
+      newlySetupConfig.getString("meh") shouldBe "unprompted"
     }
     "error if told to run with a --secure which doesn't exist" in {
       val app = new ConfigApp {

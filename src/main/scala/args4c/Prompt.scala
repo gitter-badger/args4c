@@ -11,7 +11,7 @@ import scala.io.StdIn
   */
 sealed trait Prompt
 // marker trait for prompts for the user password
-sealed trait PasswordPrompt                                                       extends Prompt
+sealed trait PasswordPrompt extends Prompt
 
 case class ReadNextKeyValuePair(requiredConfigPath: String, secureConfig: Config) extends Prompt
 case class ReadNextKeyValuePairAfterError(previousInvalidEntry: String)           extends Prompt
