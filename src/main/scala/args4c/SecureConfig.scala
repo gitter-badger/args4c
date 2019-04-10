@@ -52,26 +52,29 @@ case class SecureConfig(promptForInput: UserInput) {
   import SecureConfig._
 
   /** @param defaultSecureConfigFilePath the default path to store the configuration in, either from the --secure=x/y/z user arg, and env variable or default
+    * @param requiredPaths a potentially empty list of configuration paths which need to have values specified
     * @return the path to the secure config
     */
-  def setupSecureConfig(defaultSecureConfigFilePath : Path): Path = {
+  def setupSecureConfig(defaultSecureConfigFilePath : Path, requiredPaths : Seq[String] = Nil): Path = {
     val configPath = readSecureConfigPath(defaultSecureConfigFilePath)
-    updateSecureConfig(configPath)
+    updateSecureConfig(configPath, requiredPaths)
   }
 
   /**
     * prompt for and set some secure values
     *
+    * @param configPath the path where the secure config is written
+    * @param requiredPaths a potentially empty list of configuration paths which need to have values specified
     * @return the path to the encrypted configuration file
     */
-  def updateSecureConfig(configPath : Path): Path = {
+  def updateSecureConfig(configPath : Path, requiredPaths : Seq[String]): Path = {
     val permissions = readPermissions()
 
     if (configPath.getParent != null && !Files.exists(configPath.getParent)) {
       Files.createDirectories(configPath.getParent)
     }
 
-    val (previousConfigPassword, config) = readSecureConfig(configPath)
+    val (previousConfigPassword, config) = readSecureConfig(configPath, requiredPaths.distinct)
 
     val pwd: Array[Byte] = {
       val configPasswordPrompt = if (previousConfigPassword.isEmpty) PromptForPassword else PromptForUpdatedPassword
@@ -121,9 +124,9 @@ case class SecureConfig(promptForInput: UserInput) {
     envOrProp(SecureEnvVariableName).getOrElse(promptForInput(PromptForPassword)).getBytes("UTF-8")
   }
 
-  /** @return the user-supplied key/value pairs as a parsable block of text
+  /** @return the user-supplied key/value pairs as a parse-able block of text
     */
-  private def readSecureConfig(configPath : Path)  = {
+  private def readSecureConfig(configPath : Path, requiredPaths : Seq[String])  = {
     import implicits._
 
     var previousConfigPassword: Option[Array[Byte]] = None
@@ -137,20 +140,49 @@ case class SecureConfig(promptForInput: UserInput) {
       ConfigFactory.empty
     }
 
-    previousConfigPassword -> readNext(existingConfig, ReadNextKeyValuePair(existingConfig))
+    val filteredRequired = requiredPaths.filterNot(existingConfig.hasValue)
+    previousConfigPassword -> readNextRecursive(existingConfig, filteredRequired.headOption, ReadNextKeyValuePair(filteredRequired.headOption.getOrElse(""), existingConfig), filteredRequired)
   }
 
   @tailrec
-  private def readNext(entries: Config, nextPrompt : Prompt): Config = {
-    promptForInput(nextPrompt).trim match {
-      case "" => entries
-      case KeyValue(key, value) =>
+  private def readNextRecursive(wipConfig: Config, promptedForConfigPath : Option[String], nextPrompt : Prompt, requiredPaths : Seq[String]): Config = {
         import implicits._
-        val updated = entries.set(key, value) //, "sensitive")
+    val userReply = promptForInput(nextPrompt).trim
+    userReply match {
+        
+      case ""  =>
+        promptedForConfigPath match {
+            //
+            // they were prompted for a value but intentionally left it blank
+            //
+          case Some(key) =>
+            val newRequired = requiredPaths.filterNot(_ == key)
+            readNextRecursive(wipConfig, newRequired.headOption, ReadNextKeyValuePair(newRequired.headOption.getOrElse(""), wipConfig), newRequired)
 
+            //
+            // they were unprompted, and so are done entering values
+            //
+          case None =>
+            wipConfig
+        }
 
-        readNext(updated, ReadNextKeyValuePair(updated))
-      case other => readNext(entries, ReadNextKeyValuePairAfterError(other))
+        //
+        // The case where the user was NOT prompted to supply an explicit entry (the previousKey is None) and so supplied the text 'foo.path=bar'
+        //
+      case KeyValue(key, value) if promptedForConfigPath.isEmpty =>
+        val updated = wipConfig.set(key.trim, value.trim)
+        val newRequired = requiredPaths.filterNot(updated.hasValue)
+        readNextRecursive(updated, newRequired.headOption, ReadNextKeyValuePair(newRequired.headOption.getOrElse(""), updated), newRequired)
+      case other =>
+        promptedForConfigPath match {
+          case None =>
+            val newRequired = requiredPaths.filterNot(wipConfig.hasValue)
+            readNextRecursive(wipConfig, newRequired.headOption, ReadNextKeyValuePairAfterError(other), requiredPaths)
+          case Some(promptedForKey) =>
+            val updated = wipConfig.set(promptedForKey, other)
+            val newRequired = requiredPaths.filterNot(updated.hasValue)
+            readNextRecursive(updated, newRequired.headOption, ReadNextKeyValuePair(newRequired.headOption.getOrElse(""), updated), newRequired)
+        }
     }
   }
 

@@ -124,6 +124,11 @@ trait RichConfigOps extends Dynamic with LowPriorityArgs4cImplicits {
     }
   }
 
+  /** @param path the config path
+    * @return true if the config path is set in this config to a non-empty value. This will error if the path specified is an object or a list
+    */
+  def hasValue(path: String): Boolean = config.hasPath(path) && config.getString(path).nonEmpty
+
   /** @param overrideConfig the configuration (as a string) which should override this config -- essentially the inverse of 'withFallback'
     * @return a new configuration based on 'configString' with our config as a fallback
     */

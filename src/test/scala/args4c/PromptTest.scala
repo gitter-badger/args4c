@@ -8,7 +8,8 @@ class PromptTest extends BaseSpec {
 
   "Prompt.format" should {
     List[Prompt](
-      ReadNextKeyValuePair(ConfigFactory.empty()),
+      ReadNextKeyValuePair("", ConfigFactory.empty()),
+      ReadNextKeyValuePair("required.path", ConfigFactory.empty()),
       ReadNextKeyValuePairAfterError("input"),
       PromptForPassword,
       PromptForUpdatedPassword,

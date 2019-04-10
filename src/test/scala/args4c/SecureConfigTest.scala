@@ -117,10 +117,8 @@ object SecureConfigTest {
     prompt match {
       case SaveSecretPrompt(_)            => pathToConfigFile
       case PromptForConfigFilePermissions => SecureConfig.defaultPermissions
-      case PromptForPassword              => password
-      case PromptForUpdatedPassword       => password
-      case PromptForExistingPassword(_)   => password
-      case ReadNextKeyValuePair(_) =>
+      case _: PasswordPrompt              => password
+      case ReadNextKeyValuePair(_, _) =>
         if (testConfigEntries.hasNext) {
           testConfigEntries.next()
         } else {
